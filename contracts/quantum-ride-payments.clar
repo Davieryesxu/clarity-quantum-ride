@@ -3,6 +3,8 @@
 (use-trait ft-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
 
 (define-constant contract-owner tx-sender)
+(define-constant err-unauthorized (err u100))
+(define-constant err-minimum-amount (err u106))
 
 (define-map payment-escrow
   uint
@@ -19,6 +21,7 @@
   (amount uint)
 )
   (begin
+    (asserts! (> amount u0) (err err-minimum-amount))
     (try! (contract-call? token transfer
       amount
       tx-sender
@@ -45,6 +48,11 @@
     (begin
       (asserts! (not (get released escrow)) (err u103))
       (asserts! (is-eq (get status ride) "completed") (err u104))
+      (asserts! (is-some (get driver ride)) (err u105))
+      (map-set payment-escrow
+        ride-id
+        (merge escrow { released: true })
+      )
       (as-contract
         (contract-call? .quantum-ride-token transfer
           (get amount escrow)
