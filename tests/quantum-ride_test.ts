@@ -24,30 +24,53 @@ Clarinet.test({
 });
 
 Clarinet.test({
-  name: "Ensures ride request can be created and accepted",
+  name: "Ensures unverified driver cannot accept ride",
   async fn(chain: Chain, accounts: Map<string, Account>) {
     const deployer = accounts.get("deployer")!;
     const rider = accounts.get("wallet_1")!;
     const driver = accounts.get("wallet_2")!;
 
     let block = chain.mineBlock([
+      Tx.contractCall("quantum-ride", "register-driver", [], driver.address),
       Tx.contractCall("quantum-ride", "request-ride", 
         ["123 Main St", "456 Park Ave", types.uint(50)], 
         rider.address
       ),
-    ]);
-
-    assertEquals(block.receipts.length, 1);
-    block.receipts[0].result.expectOk().expectBool(true);
-
-    block = chain.mineBlock([
       Tx.contractCall("quantum-ride", "accept-ride",
         [types.uint(1)],
         driver.address
       ),
     ]);
 
-    assertEquals(block.receipts.length, 1);
-    block.receipts[0].result.expectOk().expectBool(true);
+    assertEquals(block.receipts.length, 3);
+    block.receipts[2].result.expectErr(types.uint(100));
+  },
+});
+
+Clarinet.test({
+  name: "Ensures verified driver can accept ride",
+  async fn(chain: Chain, accounts: Map<string, Account>) {
+    const deployer = accounts.get("deployer")!;
+    const rider = accounts.get("wallet_1")!;
+    const driver = accounts.get("wallet_2")!;
+
+    let block = chain.mineBlock([
+      Tx.contractCall("quantum-ride", "register-driver", [], driver.address),
+      Tx.contractCall("quantum-ride", "verify-driver", 
+        [types.principal(driver.address)],
+        deployer.address
+      ),
+      Tx.contractCall("quantum-ride", "request-ride", 
+        ["123 Main St", "456 Park Ave", types.uint(50)], 
+        rider.address
+      ),
+      Tx.contractCall("quantum-ride", "accept-ride",
+        [types.uint(1)],
+        driver.address
+      ),
+    ]);
+
+    assertEquals(block.receipts.length, 4);
+    block.receipts[3].result.expectOk().expectBool(true);
   },
 });
